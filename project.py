@@ -1,57 +1,63 @@
 import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer #changed from CountVectorizer
-from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import train_test_split, cross_val_score #added cross val
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix #added metrics
-import nltk
-import re
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
-from nltk.stem import WordNetLemmatizer
+from sklearn.metrics import classification_report, confusion_matrix
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-# Download necessary resources if not already available
+# Load the dataset (replace with your Kaggle dataset path)
 try:
-    nltk.data.find('punkt')
-    nltk.data.find('wordnet')
-    nltk.data.find('stopwords')
-except LookupError:
-    nltk.download('punkt')
-    nltk.download('wordnet')
-    nltk.download('stopwords')
+    df = pd.read_csv("political_speech_bias.csv")  # Example filename
+except FileNotFoundError:
+    print("Error: Dataset file not found. Please ensure the path is correct.")
+    exit()
 
-# Load dataset
-df = pd.read_csv("Political_Bias.csv", encoding="utf-8")
+# Preprocessing (adjust based on your dataset's columns)
+if 'text' not in df.columns or 'bias' not in df.columns:
+    print("Error: Required columns 'text' or 'bias' not found in the dataset.")
+    exit()
 
-# ... (rest of the data loading and preprocessing code) ...
+df = df.dropna(subset=['text', 'bias'])  # Remove rows with missing values
+X = df['text']
+y = df['bias']
 
-# Vectorization
-vectorizer = TfidfVectorizer(ngram_range=(1, 2)) #changed to Tfidf and added ngram
-X = vectorizer.fit_transform(df['Processed_Text'])
-
-y = df['Bias']
-
-# Split the dataset into training and testing sets
+# Split the data
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Initialize and train the model
-model = LogisticRegression(max_iter=1000) #increased max_iter
-model.fit(X_train, y_train)
+# Vectorization (TF-IDF)
+vectorizer = TfidfVectorizer(max_features=5000)  # Adjust max_features as needed
+X_train_vec = vectorizer.fit_transform(X_train)
+X_test_vec = vectorizer.transform(X_test)
 
-# Make predictions
-y_pred = model.predict(X_test)
+# Model Training (Logistic Regression)
+model = LogisticRegression(max_iter=1000)  # Increase max_iter if needed
+model.fit(X_train_vec, y_train)
 
-# Evaluate the model
-accuracy = accuracy_score(y_test, y_pred)
-print(f"Model Accuracy: {accuracy:.2f}")
+# Model Evaluation
+y_pred = model.predict(X_test_vec)
 
-print("\nClassification Report:")
-print(classification_report(y_test, y_pred))
+# Output Results
+print("Classification Report:\n", classification_report(y_test, y_pred))
 
-print("\nConfusion Matrix:")
-print(confusion_matrix(y_test, y_pred))
+# Confusion Matrix Visualization
+cm = confusion_matrix(y_test, y_pred)
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+plt.xlabel('Predicted Labels')
+plt.ylabel('True Labels')
+plt.title('Confusion Matrix')
+plt.show()
 
-#Cross Validation.
-scores = cross_val_score(model, X, y, cv=5)
-print(f"\nCross Validation Scores: {scores}")
-print(f"Mean Cross Validation Score: {scores.mean()}")
+#Example prediction.
+example_speech = ["The other party is completely wrong and is destroying our country. We must take action against them."]
+example_speech_vec = vectorizer.transform(example_speech)
+prediction = model.predict(example_speech_vec)
+print(f"Example Speech: {example_speech[0]}")
+print(f"Predicted Bias: {prediction[0]}")
+
+example_speech2 = ["We must work together to find common ground and solve our problems."]
+example_speech_vec2 = vectorizer.transform(example_speech2)
+prediction2 = model.predict(example_speech_vec2)
+print(f"Example Speech: {example_speech2[0]}")
+print(f"Predicted Bias: {prediction2[0]}")
